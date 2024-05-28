@@ -1,0 +1,19 @@
+input:
+  stdin:
+    scanner:
+      json_documents: {}
+
+buffer:
+  none: {}
+
+pipeline:
+  processors:
+    - mutation: |
+        root.uuid = uuid_v4()
+
+output:
+  stdout: {}
+
+metrics:
+  prometheus: {}
+  mapping: ""
