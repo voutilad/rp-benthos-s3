@@ -1,19 +1,26 @@
 input:
-  stdin:
+  file:
+    paths: ["./samples/*.tar.gz"]
     scanner:
-      json_documents: {}
+      decompress:
+        algorithm: "gzip"
+        into:
+          tar: {}
 
 buffer:
   none: {}
 
 pipeline:
   processors:
-    - mutation: |
-        root.uuid = uuid_v4()
+    - mapping: |
+        # Drop some metadata that comes from our tarball.
+        if !content().has_prefix("{") { deleted() }
+    - unarchive:
+        format: "json_documents"
+    - mapping: |
+        root.name = this.name
+        root.total = this.list.sum()
 
 output:
-  stdout: {}
-
-metrics:
-  prometheus: {}
-  mapping: ""
+  stdout:
+    codec: lines
