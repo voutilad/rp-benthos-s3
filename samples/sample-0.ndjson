@@ -1,2 +1,2 @@
-{ "name": "Dave", "list": [1, 2, 3] }
-{ "name": "Violet", "list": [2, 4, 6] }
+{ "name": "Article 1", "abstract": "this is article 1", "url": "http://127.0.0.1/article1", "identifier": 1234, "event": { "identifier": "abc-123" } }
+{ "name": "Article 2", "abstract": "this is article 2", "url": "http://127.0.0.1/article2", "identifier": 2233, "event": { "identifier": "xyz-123" } }

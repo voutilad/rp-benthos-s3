@@ -12,14 +12,19 @@ buffer:
 
 pipeline:
   processors:
+    # Drop some metadata that comes from our tarball.
     - mapping: |
-        # Drop some metadata that comes from our tarball.
         if !content().has_prefix("{") { deleted() }
+    # Split out the newline-delimitted JSON into individual messages.
     - unarchive:
         format: "json_documents"
+    # Play with it for now.
     - mapping: |
-        root.name = this.name
-        root.total = this.list.sum()
+        root.text = this.abstract
+        root.metadata.title = this.name
+        root.metadata.url = this.url
+        root.metadata.identifier = this.identifier
+        root.metadata.event = this.event
 
 output:
   stdout:
