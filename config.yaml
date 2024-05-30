@@ -1,6 +1,6 @@
 input:
   file:
-    paths: ["./samples/*.tar.gz"]
+    paths: [ "${RP_CONNECT_INPUT:./samples/*.tar.gz}" ]
     scanner:
       decompress:
         algorithm: "gzip"
@@ -27,5 +27,15 @@ pipeline:
         root.metadata.event = this.event
 
 output:
-  stdout:
-    codec: lines
+  kafka_franz:
+    seed_brokers: [ "${RP_CONNECT_BROKER:127.0.0.1:9092}" ]
+    topic: "${RP_CONNECT_TOPIC:wikipedia}"
+    tls:
+      enabled: ${RP_CONNECT_TLS:false}
+    sasl:
+      - mechanism: "${RP_CONNECT_SASL_MECH:none}"
+        username: "${RP_CONNECT_USERNAME:}"
+        password: "${RP_CONNECT_PASSWORD:}"
+    batching:
+      byte_size: 1048576
+      period: "5s"
