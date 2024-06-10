@@ -5,7 +5,8 @@ input:
     prefix: "${RP_CONNECT_PREFIX:incoming/enwiki-chunk-0}"
     delete_objects: ${RP_CONNECT_DELETE_OBJECTS:false}
     credentials:
-      from_ec2_role: ${RP_CONNECT_USE_ROLE:false}
+      from_ec2_role: ${RP_CONNECT_USE_EC2_ROLE:false}
+      role: "${RP_CONNECT_ROLE_ARN:}"
     scanner:
       decompress:
         algorithm: "gzip"
@@ -18,6 +19,10 @@ pipeline:
     - mapping: |
         if !content().has_prefix("{") { deleted() }
     # Split out the newline-delimitted JSON into individual messages.
+    - log:
+        level: INFO
+        message: |
+          'processing ${! meta("tar_name") } from s3://${! meta("s3_bucket") }/${! meta("s3_key") }'
     - unarchive:
         format: "json_documents"
     # Play with it for now.
