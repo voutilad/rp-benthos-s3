@@ -1,14 +1,16 @@
 input:
-  file:
-    paths: [ "${RP_CONNECT_INPUT:./samples/*.tar.gz}" ]
+  aws_s3:
+    bucket: "${RP_CONNECT_BUCKET:dv-rp-benthos}"
+    region: "${RP_CONNECT_REGION:us-east-1}"
+    prefix: "${RP_CONNECT_PREFIX:incoming/enwiki-chunk-0}"
+    delete_objects: ${RP_CONNECT_DELETE_OBJECTS:false}
+    credentials:
+      from_ec2_role: ${RP_CONNECT_USE_ROLE:false}
     scanner:
       decompress:
         algorithm: "gzip"
         into:
           tar: {}
-
-buffer:
-  none: {}
 
 pipeline:
   processors:
@@ -23,13 +25,14 @@ pipeline:
         root.text = this.abstract
         root.metadata.title = this.name
         root.metadata.url = this.url
-        root.metadata.identifier = this.identifier
         root.metadata.event = this.event
+        meta key = this.event.identifier
 
 output:
   kafka_franz:
     seed_brokers: [ "${RP_CONNECT_BROKER:127.0.0.1:9092}" ]
     topic: "${RP_CONNECT_TOPIC:wikipedia}"
+    key: ${! meta("key") }
     tls:
       enabled: ${RP_CONNECT_TLS:false}
     sasl:
@@ -38,4 +41,4 @@ output:
         password: "${RP_CONNECT_PASSWORD:}"
     batching:
       byte_size: 1048576
-      period: "5s"
+      period: "2s"
