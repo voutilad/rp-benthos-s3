@@ -1,0 +1,27 @@
+input:
+  stdin:
+    scanner:
+      json_documents: {}
+
+pipeline:
+  processors:
+    # Extract our Records Array.
+    - jq:
+        query: ".Records"
+    # Iterate over the events as we may have multiple.
+    - unarchive:
+        format: json_array
+    # Extract the useful information for identifying the S3 objects.
+    - mapping: |
+        root.region = this.awsRegion
+        root.key = this.s3.object.key
+        root.bucket = this.s3.bucket.name
+    # Format into a shell-script-friendly string of key=value pairs
+    - mapping: |
+        root = "RP_CONNECT_REGION=%s RP_CONNECT_PREFIX=%s RP_CONNECT_BUCKET=%s".format(this.region, this.key, this.bucket)
+
+output:
+  stdout: {}
+
+logger:
+  level: OFF

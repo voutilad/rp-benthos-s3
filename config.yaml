@@ -1,12 +1,17 @@
+shutdown_timeout: "5m"
+logger:
+  level: INFO
+  format: json
+
 input:
   aws_s3:
-    bucket: "${RP_CONNECT_BUCKET:dv-rp-benthos}"
-    region: "${RP_CONNECT_REGION:us-east-1}"
-    prefix: "${RP_CONNECT_PREFIX:incoming/enwiki-chunk-0}"
+    bucket: "${RP_CONNECT_BUCKET}"
+    region: "${RP_CONNECT_REGION}"
+    prefix: "${RP_CONNECT_PREFIX:}"
     delete_objects: ${RP_CONNECT_DELETE_OBJECTS:false}
     credentials:
       from_ec2_role: ${RP_CONNECT_USE_EC2_ROLE:false}
-      role: "${RP_CONNECT_ROLE_ARN:}"
+      role: "${RP_CONNECT_ROLE:}"
     scanner:
       decompress:
         algorithm: "gzip"
@@ -15,17 +20,18 @@ input:
 
 pipeline:
   processors:
-    # Drop some metadata that comes from our tarball.
+    # Drop some metadata that comes from tarballs or bogus events from S3.
     - mapping: |
-        if !content().has_prefix("{") { deleted() }
-    # Split out the newline-delimitted JSON into individual messages.
+        if !content().has_prefix("{") || metadata("s3_key").or("").length() == 0 { deleted() }
+    # Help aid debugging by logging info on the object we're processing.
     - log:
         level: INFO
         message: |
-          'processing ${! meta("tar_name") } from s3://${! meta("s3_bucket") }/${! meta("s3_key") }'
+          processing ${! metadata("tar_name") } from s3://${! metadata("s3_bucket") }/${! metadata("s3_key") }
+    # Split out the newline-delimitted JSON into individual messages.
     - unarchive:
         format: "json_documents"
-    # Play with it for now.
+    # Pull out relevant content and assign a message key.
     - mapping: |
         root.text = this.abstract
         root.metadata.title = this.name
@@ -37,7 +43,7 @@ output:
   kafka_franz:
     seed_brokers: [ "${RP_CONNECT_BROKER:127.0.0.1:9092}" ]
     topic: "${RP_CONNECT_TOPIC:wikipedia}"
-    key: ${! meta("key") }
+    key: ${! metadata("key") }
     tls:
       enabled: ${RP_CONNECT_TLS:false}
     sasl:
@@ -46,4 +52,4 @@ output:
         password: "${RP_CONNECT_PASSWORD:}"
     batching:
       byte_size: 1048576
-      period: "2s"
+      period: "1s"
