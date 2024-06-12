@@ -24,8 +24,7 @@ fi
 
 # Update our app layer.
 cp bootstrap layers/app
-cp helper.yaml layers/app
-cp config.yaml layers/app
+cp {config,http}.yaml layers/app
 
 # Update or create our layer files.
 for layer in "app" "rpk" "connect"; do
@@ -72,8 +71,8 @@ LAMBDA_LAYERS=$(echo "${LAMBDA_LAYERS}" | awk '{$1=$1};1')
 echo "> creating function with layers: ${LAMBDA_LAYERS}"
 LAMBDA_ARN=$(aws lambda create-function \
                  --region "${RP_CONNECT_REGION}" \
-                 --timeout 600 \
-                 --memory-size 256 \
+                 --timeout 300 \
+                 --memory-size 512 \
                  --runtime provided.al2023 \
                  --architectures arm64 \
                  --layers ${LAMBDA_LAYERS} \

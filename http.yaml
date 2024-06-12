@@ -1,0 +1,84 @@
+input:
+  label: get_next_event
+  http_client:
+    url: "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/next"
+    timeout: "5s"
+    auto_replay_nacks: false
+    extract_headers:
+      include_patterns: [ "lambda-runtime-aws-*" ]
+
+cache_resources:
+  - label: key_cache
+    memory: {}
+
+pipeline:
+  processors:
+    # Deduplicate any repeat events since we keep polling the API.
+    - dedupe:
+        cache: key_cache
+        key: ${! metadata("lambda-runtime-aws-request-id") }
+    # We got an event!
+    - log:
+        message: processing request ${! metadata("lambda-runtime-aws-request-id")  }
+    # Extract our Records Array.
+    - jq:
+        query: ".Records"
+    # Iterate over the events as we may have multiple.
+    # (In practice, not sure if this happens.)
+    - unarchive:
+        format: json_array
+    # Extract the useful information for identifying the S3 objects.
+    - mapping: |
+        meta region = this.awsRegion
+        meta key = this.s3.object.key
+        meta bucket = this.s3.bucket.name
+    # Fire off a secondary Redpanda Connect instance.
+    - log:
+        message: 'processing s3://${! metadata("bucket") }/${! metadata("key") } in ${! metadata("region") }'
+    - command:
+        name: rpk
+        args_mapping: |
+          [ "connect", "run",
+            "--set", "input.aws_s3.bucket=%s".format(metadata("bucket")),
+            "--set", "input.aws_s3.region=%s".format(metadata("region")),
+            "--set", "input.aws_s3.prefix=%s".format(metadata("key")),
+            "config.yaml" ]
+    # Construct a Lambda function response per:
+    # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html
+    - switch:
+        # Failure :(
+        - check: errored()
+          processors:
+            - log:
+                message: 'CRAP: ${! metadata("command_stderr") }'
+            - mapping: |
+                meta outcome = "error"
+                root.errorMessage = "failed to process s3://%s/%s".format(
+                  metadata("bucket"), metadata("key")
+                )
+                root.errorType = "UnknownError"
+                root.stackTrace = metadata("command_stderr").split("\n")
+        # Success :)
+        - processors:
+            - log:
+                message: 'OK: ${! metadata("command_stderr") }'
+            - mapping: |
+                meta outcome = "response"
+                root.id = metadata("lambda-runtime-aws-request-id")
+                root.message = "processed s3://%s/%s".format(
+                  metadata("bucket"), metadata("key")
+                )
+
+output:
+  label: lambda_response
+  http_client:
+    url: http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/${! metadata("lambda-runtime-aws-request-id") }/${! metadata("outcome") }
+    verb: POST
+    max_in_flight: 1
+
+# global settings
+logger:
+  level: INFO
+  format: json
+http:
+  enabled: false

@@ -1,37 +1,4 @@
 #!/bin/sh
-# skeleton cribbed from the AWS Lambda developer guide:
-#   https://docs.aws.amazon.com/en_us/lambda/latest/dg/runtimes-walkthrough.html
+# our rpk layers end up in /opt and not in our default PATH
 export PATH="${PATH}:/opt"
-
-# Stubbed out JSON responses.
-RESPONSE_OK='{ "result": "ok" }'
-RESPONSE_ERR='{ "result": "error" }'
-
-echo "Starting up lambda function"
-
-while true; do
-    # Fetch an event and extract its id.
-    # TODO: do we need to call mktemp(1) each time?
-    HEADERS="$(mktemp)"
-    EVENT_DATA=$(curl -sS -LD "$HEADERS" "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/next")
-    REQUEST_ID=$(grep -Fi Lambda-Runtime-Aws-Request-Id "$HEADERS" | tr -d '[:space:]' | cut -d: -f2)
-    echo "Received event ${REQUEST_ID}"
-
-    # Process the event into bucket settings.
-    RP_VARS=$(echo "${EVENT_DATA}" | rpk connect run helper.yaml)
-    for VAR in ${RP_VARS}; do export ${VAR}; done
-
-    # process event
-    echo "Invoking Redpanda Connect"
-    echo $(env | grep RP_CONNECT | sed 's/PASSWORD=.*/PASSWORD=\[redacted\]/')
-    if ! rpk connect run config.yaml 2>&1; then
-        RESPONSE=${RESPONSE_ERR}
-    else
-        RESPONSE=${RESPONSE_OK}
-    fi
-
-    # Report success/failure.
-    curl -sS "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/${REQUEST_ID}/response" -d "$RESPONSE"
-done
-
-echo "Exiting"
+exec rpk connect run http.yaml
