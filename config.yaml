@@ -48,10 +48,10 @@ output:
       byte_size: 1048576
       period: "1s"
 
-# Global Config
+# global settings
 shutdown_timeout: "3m"
-http:
-  enabled: false
 logger:
   level: INFO
   format: json
+http:
+  enabled: false

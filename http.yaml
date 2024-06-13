@@ -50,7 +50,7 @@ pipeline:
         - check: errored()
           processors:
             - log:
-                message: 'CRAP: ${! metadata("command_stderr") }'
+                message: 'error in subprocessor: ${! metadata("command_stderr") }'
             - mapping: |
                 meta outcome = "error"
                 root.errorMessage = "failed to process s3://%s/%s".format(
@@ -58,10 +58,11 @@ pipeline:
                 )
                 root.errorType = "UnknownError"
                 root.stackTrace = metadata("command_stderr").split("\n")
-        # Success :)
+        # Success :) Try to parse the log output so we can relay it.
         - processors:
             - log:
-                message: 'OK: ${! metadata("command_stderr") }'
+                message: subprocess output
+                fields_mapping: root = this.parse_json()
             - mapping: |
                 meta outcome = "response"
                 root.id = metadata("lambda-runtime-aws-request-id")
