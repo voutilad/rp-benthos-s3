@@ -1,2 +1,10 @@
 token.json
 rpk-linux-arm64.zip
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
