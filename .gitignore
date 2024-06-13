@@ -7,4 +7,4 @@ rpk-linux-arm64.zip
 # .tfstate files
 *.tfstate
 *.tfstate.*
-
+terraform.tfvars
