@@ -76,5 +76,58 @@ creation:
 
 ## Deployment
 
-TODO: but `./deploy.sh` has a lot of the logic. Some stuff (roles,
-bucket, etc.) still need documenting.
+There are two phases to deployment:
+
+1. Packaging up the application.
+2. Deploying the AWS infrastructure.
+
+### Packaging
+
+You should be able to just run the `build.sh` script. It will package
+up the Redpanda Connect configuration files (the yaml files), download
+a particular Linux arm64 release of `rpk`, and assemble the Lambda
+layer zip files.
+
+For AWS, it's easiest to use the AWS environment variables for authentication. Grab those from your account and export them.
+
+
+```sh
+export AWS_ACCESS_KEY_ID="your-key-kid"
+export AWS_SECRET_ACCESS_KEY="some-access-key"
+export AWS_SESSION_TOKEN="you-long-long-session-token"
+```
+
+If you make config changes, make sure to re-run `build.sh`.
+
+### Deployment
+
+Deployment uses Terraform / OpenTofu. All you need is an AWS account
+you have permissions to create infrastructure in, including IAM
+roles/policies, S3 buckets, and Lambda functions. You also should have
+a Redpanda instance accessible from the Lambda function, so go grab
+one at: https://cloud.redpanda.com/signup
+
+To keep it simple, prepare a Terraform variables file `terraform.tfvars`:
+
+```hcl
+s3_bucket_name = "my-cool-bucket"
+redpanda_bootstrap = "tktktktktktkt.any.us-east-1.mpx.prd.cloud.redpanda.com:9092"
+redpanda_topic = "documents"
+redpanda_username = "my-redpanda-user"
+redpanda_password = "my-super-cool-password"
+redpanda_use_tls = true
+redpanda_delete_objects = true
+```
+
+Then fire off the deployment:
+
+```sh
+tofu apply
+```
+
+## Caveats
+
+The terraform stuff probably won't pick up on zip file / layer
+changes. I haven't tested that part. If you make a config change and
+re-run `build.sh`, keep that in mind. It might be easiest to run `tofu
+destroy` and then `tofu apply` to rebuild the environment.
