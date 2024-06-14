@@ -105,7 +105,7 @@ Deployment uses Terraform / OpenTofu. All you need is an AWS account
 you have permissions to create infrastructure in, including IAM
 roles/policies, S3 buckets, and Lambda functions. You also should have
 a Redpanda instance accessible from the Lambda function, so go grab
-one at: https://cloud.redpanda.com/signup
+one at: https://cloud.redpanda.com/sign-up
 
 To keep it simple, prepare a Terraform variables file `terraform.tfvars`:
 
