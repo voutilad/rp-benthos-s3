@@ -5,6 +5,10 @@ terraform {
       source = "hashicorp/aws"
       version = "5.53.0"
     }
+    random = {
+      source = "hashicorp/random"
+      version = "3.6.2"
+    }
   }
 }
 
@@ -29,6 +33,12 @@ variable "s3_bucket_name" {
 variable "aws_region" {
   type = string
   default = "us-east-1"
+}
+
+variable "aws_lambda_ext_arn" {
+  type = string
+  default = "arn:aws:lambda:us-east-1:177933569100:layer:AWS-Parameters-and-Secrets-Lambda-Extension-Arm64:11"
+  description = "See https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html#arm64"
 }
 
 variable "role_name" {
@@ -93,6 +103,16 @@ data "aws_iam_policy_document" "rp_connect_demo_policy" {
   }
 }
 
+data "aws_iam_policy_document" "rp_connect_demo_secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [ "secretsmanager:GetSecretValue" ]
+    resources = [
+      aws_secretsmanager_secret.redpanda_secret.arn
+    ]
+  }
+}
+
 data "aws_iam_policy" "lambda_exec_policy" {
   name = "AWSLambdaBasicExecutionRole"
 }
@@ -103,6 +123,14 @@ data "aws_caller_identity" "current" {}
 ## Resources
 ################################################################################
 
+# Secrets in AWS can't be deleted faster than 7 days. Use a
+# psuedo-random suffix for demo purposes in case we need to destroy
+# and recreate everything.
+resource "random_integer" "suffix" {
+  min = 100000
+  max = 999999
+}
+
 # Create our bucket and set up some IAM policies and roles to manage access.
 resource "aws_s3_bucket" "bucket" {
   bucket = var.s3_bucket_name
@@ -111,6 +139,27 @@ resource "aws_s3_bucket" "bucket" {
 resource "aws_iam_policy" "bucket_policy" {
   name = "${var.s3_bucket_name}_policy"
   policy = data.aws_iam_policy_document.rp_connect_demo_policy.json
+}
+
+# Create our Secret for storing password and connectivity information.
+resource "aws_secretsmanager_secret" "redpanda_secret" {
+  name = "rp_connect_demo_secret-${resource.random_integer.suffix.result}"
+}
+
+resource "aws_secretsmanager_secret_version" "redpanda_secret_version" {
+  secret_id = aws_secretsmanager_secret.redpanda_secret.id
+  secret_string = jsonencode({
+    RP_CONNECT_BROKER = var.redpanda_bootstrap
+    RP_CONNECT_USERNAME = var.redpanda_username
+    RP_CONNECT_PASSWORD = var.redpanda_password
+    RP_CONNECT_SASL_MECH = var.redpanda_sasl_mechanism
+    RP_CONNECT_TLS = var.redpanda_use_tls
+  })
+}
+
+resource "aws_iam_policy" "secrets_read_policy" {
+  name = "Allow-Reading-RP-Connect-Secrets"
+  policy = data.aws_iam_policy_document.rp_connect_demo_secrets_policy.json
 }
 
 resource "aws_iam_role" "rp_connect_demo_role" {
@@ -130,6 +179,7 @@ resource "aws_iam_role" "rp_connect_demo_role" {
   managed_policy_arns = [
     data.aws_iam_policy.lambda_exec_policy.arn,
     aws_iam_policy.bucket_policy.arn,
+    aws_iam_policy.secrets_read_policy.arn,
   ]
 }
 
@@ -171,17 +221,14 @@ resource "aws_lambda_function" "lambda" {
   layers = [
     aws_lambda_layer_version.layer_rpk.arn,
     aws_lambda_layer_version.layer_connect.arn,
+    var.aws_lambda_ext_arn,
   ]
 
   environment {
     variables = {
-      RP_CONNECT_BROKER = var.redpanda_bootstrap
       RP_CONNECT_TOPIC = var.redpanda_topic
-      RP_CONNECT_USERNAME = var.redpanda_username
-      RP_CONNECT_PASSWORD = var.redpanda_password
-      RP_CONNECT_SASL_MECH = var.redpanda_sasl_mechanism
-      RP_CONNECT_TLS = var.redpanda_use_tls
       RP_CONNECT_DELETE_OBJECTS = var.redpanda_delete_objects
+      RP_CONNECT_SECRETS_ID = aws_secretsmanager_secret.redpanda_secret.id
     }
   }
 }
