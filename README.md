@@ -1,5 +1,7 @@
 # Redpanda Connect -- The Unsexy ETL demo
 
+<img src="./config.png" width="50%">
+
 It's pretty common that folks building streaming platforms still need
 to onboard batches of data, often provided by 3rd parties via cloud
 object storage. A pattern I've come across:
@@ -67,7 +69,9 @@ creation:
 5. The "outer" logic polls the HTTP endpoint to retrieve the event,
    extracts details (e.g. bucket, object key, etc.) and invokes the
    "inner" logic using a `command` processor, overriding config used
-   by the `aws_s3` input via cli args.
+   by the `aws_s3` input via cli args. The access credentials for
+   Redpanda are retrieved using an HTTP client calling AWS's Secrets
+   Lambda Extension.
 6. The "inner" logic retrieves the object, processes it, and publishes
    to a topic configured on the `kafka_franz` output
 7. The "outer" logic takes over and sends an HTTP POST to let Lambda
@@ -107,7 +111,8 @@ roles/policies, S3 buckets, and Lambda functions. You also should have
 a Redpanda instance accessible from the Lambda function, so go grab
 one at: https://cloud.redpanda.com/sign-up
 
-To keep it simple, prepare a Terraform variables file `terraform.tfvars`:
+To keep it simple, prepare a Terraform variables file
+`terraform.tfvars` like the one below, but with your unique details.
 
 ```hcl
 s3_bucket_name = "my-cool-bucket"
@@ -124,6 +129,9 @@ Then fire off the deployment:
 ```sh
 tofu apply
 ```
+
+You should now be able to drop gzipped tarballs of ndjson into the S3
+bucket and watch the fireworks.
 
 ## Caveats
 
