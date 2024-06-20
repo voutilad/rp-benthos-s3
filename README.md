@@ -1,6 +1,6 @@
 # Redpanda Connect -- The Unsexy ETL demo
 
-<img src="./config.png" width="50%">
+<img src="./config.png" width="85%">
 
 It's pretty common that folks building streaming platforms still need
 to onboard batches of data, often provided by 3rd parties via cloud
