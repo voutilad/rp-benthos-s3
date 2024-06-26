@@ -133,7 +133,8 @@ resource "random_integer" "suffix" {
 
 # Create our bucket and set up some IAM policies and roles to manage access.
 resource "aws_s3_bucket" "bucket" {
-  bucket = var.s3_bucket_name
+  bucket_prefix = "${var.s3_bucket_name}-"
+  force_destroy = true
 }
 
 resource "aws_iam_policy" "bucket_policy" {
