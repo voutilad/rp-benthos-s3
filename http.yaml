@@ -1,3 +1,10 @@
+# Global settings.
+logger:
+  level: INFO
+  format: json
+http:
+  enabled: false
+
 input:
   label: get_next_event
   http_client:
@@ -20,19 +27,23 @@ pipeline:
     # We got an event!
     - log:
         message: processing request ${! metadata("lambda-runtime-aws-request-id")  }
-    # Extract our Records Array.
-    - jq:
-        query: ".Records"
-    # Iterate over the events as we may have multiple.
-    # (In practice, not sure if this happens.)
-    - unarchive:
-        format: json_array
-    # Extract the useful information for identifying the S3 objects.
-    - mapping: |
-        meta region = this.awsRegion
-        meta key = this.s3.object.key
-        meta bucket = this.s3.bucket.name
-        meta outcome = "error"
+    # Main S3 event processing logic
+    - label: parse_event
+      processors:
+        # Extract our Records Array.
+        - jq:
+            query: ".Records"
+        # Iterate over the events as we may have multiple.
+        # (In practice, not sure if this happens.)
+        - unarchive:
+            format: json_array
+        # Extract the useful identifiers for the S3 object(s), drop content.
+        - mapping: |
+            meta region = this.awsRegion
+            meta key = this.s3.object.key
+            meta bucket = this.s3.bucket.name
+            meta outcome = "error"
+            root = ""
     # Fetch a copy of our Redpanda Cloud connection details and extract them.
     - branch:
         request_map: |
@@ -110,9 +121,52 @@ output:
     verb: POST
     max_in_flight: 1
 
-# global settings
-logger:
-  level: INFO
-  format: json
-http:
-  enabled: false
+# Tests for our data transformation logic.
+# See https://docs.aws.amazon.com/lambda/latest/dg/with-s3-example.html
+tests:
+  - name: Test parsing S3 event
+    target_processors: parse_event
+    input_batch:
+      - content: |
+          {
+            "Records": [{
+              "eventVersion": "2.0",
+              "eventSource": "aws:s3",
+              "awsRegion": "us-east-1",
+              "eventTime": "1970-01-01T00:00:00.000Z",
+              "eventName": "ObjectCreated:Put",
+              "userIdentity": {
+                "principalId": "EXAMPLE"
+              },
+              "requestParameters": {
+                "sourceIPAddress": "127.0.0.1"
+              },
+              "responseElements": {
+                "x-amz-request-id": "EXAMPLE123456789"
+              },
+              "s3": {
+                "s3SchemaVersion": "1.0",
+                "configurationId": "testConfigRule",
+                "bucket": {
+                  "name": "DOC-EXAMPLE-BUCKET",
+                  "ownerIdentity": {
+                    "principalId": "EXAMPLE"
+                  },
+                  "arn": "arn:aws:s3:::DOC-EXAMPLE-BUCKET"
+                },
+                "object": {
+                  "key": "testkey",
+                  "size": 1024,
+                  "eTag": "0123456789abcdef0123456789abcdef",
+                  "sequencer": "0A1B2C3D4E5F678901"
+                }
+              }
+            }]
+          }
+    output_batches:
+      - # We should have all our object details in metadata and no message body.
+        - metadata_equals:
+            region: us-east-1
+            key: testkey
+            bucket: DOC-EXAMPLE-BUCKET
+          content_equals: ""

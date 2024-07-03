@@ -1,3 +1,12 @@
+# Global settings.
+shutdown_timeout: "3m"
+logger:
+  level: INFO
+  format: json
+http:
+  enabled: false
+
+
 input:
   aws_s3:
     bucket: "${RP_CONNECT_BUCKET:}"
@@ -48,10 +57,37 @@ output:
       byte_size: 1048576
       period: "1s"
 
-# global settings
-shutdown_timeout: "3m"
-logger:
-  level: INFO
-  format: json
-http:
-  enabled: false
+# Test our pipeline logic.
+tests:
+  - name: Good input test (shows the shape of the Wikipedia data)
+    input_batch:
+      - content: |
+          { "abstract": "txt1", "name": "n1", "url": "x", "event": { "identifier": "1" } }
+          { "abstract": "txt2", "name": "n2", "url": "y", "event": { "identifier": "2" } }
+          { "abstract": "txt3", "name": "n3", "url": "z", "event": { "identifier": "3" } }
+        metadata:
+          s3_key: some-key
+    output_batches:
+      - # Should have 3 messages from the single input_batch.
+        - json_equals: |
+            { "text": "txt1", "metadata": { "title": "n1", "url": "x", "event": { "identifier": "1" } } }
+          metadata_equals:
+            s3_key: some-key
+        - json_equals: |
+            { "text": "txt2", "metadata": { "title": "n2", "url": "y", "event": { "identifier": "2" } } }
+          metadata_equals:
+            s3_key: some-key
+        - json_equals: |
+            { "text": "txt3", "metadata": { "title": "n3", "url": "z", "event": { "identifier": "3" } } }
+          metadata_equals:
+            s3_key: some-key
+  - name: Drops bad data
+    input_batch:
+      - content: |
+          { "abstract": "txt1", "name": "n11", "url": "http://localhost", "event": { "identifier": "1" } }
+        metadata: {} # missing s3_key
+      - content: |
+          "this is not json content!"
+        metadata:
+          s3_key: some-key
+    output_batches: [] # should be empty!
