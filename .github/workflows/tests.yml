@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     container: docker.redpanda.com/redpandadata/redpanda:latest
     steps:
-      - name: Create 
       - uses: actions/checkout@v4
         with:
           path: connect
