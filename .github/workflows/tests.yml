@@ -25,7 +25,9 @@ jobs:
             # Update these if files change in the project.
             config.yaml
             http.yaml
+      - name: Sanity check
+        run: cat "${GITHUB_WORKSPACE}/connect/http.yaml"
       - name: Test http.yaml
-        run: rpk connect test ${GITHUB_WORKSPACE}/connect/http.yaml
+        run: rpk connect test --log info "${GITHUB_WORKSPACE}/connect/http.yaml"
       - name: Test config.yaml
-        run: rpk connect test ${GITHUB_WORKSPACE}/connect/config.yaml
+        run: rpk connect test --log info "${GITHUB_WORKSPACE}/connect/config.yaml"
