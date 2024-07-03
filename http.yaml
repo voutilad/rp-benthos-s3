@@ -31,8 +31,7 @@ pipeline:
     - label: parse_event
       processors:
         # Extract our Records Array.
-        - jq:
-            query: ".Records"
+        - mapping: root = this.Records
         # Iterate over the events as we may have multiple.
         # (In practice, not sure if this happens.)
         - unarchive:
