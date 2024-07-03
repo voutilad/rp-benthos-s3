@@ -5,17 +5,12 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch: {}
-
-defaults:
-  run:
-    # This is the redpanda user's $HOME directory in the Docker image.
-    working-directory: /var/lib/redpanda
-
+  
 jobs:
   test:
     runs-on: ubuntu-latest
     container: 
-      image: docker.redpanda.com/redpandadata/redpanda:latest
+      image: docker.redpanda.com/redpandadata/redpanda:v24.1.9
       options: --user root
     steps:
       - uses: actions/checkout@v4
