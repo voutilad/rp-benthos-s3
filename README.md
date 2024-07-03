@@ -1,5 +1,5 @@
 # Redpanda Connect -- The Unsexy ETL demo
-
+[![Run Redpanda Connect tests](https://github.com/voutilad/rp-benthos-s3/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/voutilad/rp-benthos-s3/actions/workflows/tests.yml)
 <img src="./config.png" width="85%">
 
 It's pretty common that folks building streaming platforms still need
